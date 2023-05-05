@@ -106,6 +106,7 @@ function currentTime() {
 
 window.timeOffset = 0;
 async function fetchCalendar() {
+    await getCompleted();
     let now = currentTime();
     console.log("Fetching calendar at", now);
     let api = await fetch('routines');
@@ -115,6 +116,38 @@ async function fetchCalendar() {
     routines = routines.filter((o) => o['days'].includes(dow));
     updateCalendar(routines, now);
     console.log("fetchCalendar complete at", now);
+}
+
+function currentYmd() {
+    let now = currentTime();
+    let ymd = now.getFullYear()+'-'+(1+now.getMonth())+'-'+(now.getDate());
+    return ymd;
+}
+
+async function markComplete(id) {
+    let api = await fetch('complete?' + new URLSearchParams({'day': currentYmd(), 'id': id}));
+    let out = await api.text();
+    console.log("markComplete", id, out);
+    await getCompleted();
+
+    checkAllCompleted();
+}
+
+window.completed = {};
+async function getCompleted() {
+    let api = await fetch('completed');
+    let out = await api.json();
+    console.log("getCompleted", out);
+    window.completed = out;
+}
+
+function isCompleted(id) {
+    let ymd = currentYmd();
+    if (!window.completed) return false;
+    if (!!window.completed[ymd]) {
+        return window.completed[ymd].includes(id);
+    }
+    return false;
 }
 
 function updateCalendar(events, now) {
@@ -150,6 +183,11 @@ function updateCalendar(events, now) {
         var endDate = new Date(eventend);
 
         console.log(event.name, 'timeMins:', timeMins, 'overInMins:', overInMins, 'length:', lengthMins, event);
+
+        if (isCompleted(event.id)) {
+            console.info('skip completed', event);
+            return;
+        }
 
         // Skip duplicated events (on multiple calendars)
         if (processedEvents.indexOf(event.name + startDate + endDate) != -1) {
@@ -237,8 +275,6 @@ function updateCalendar(events, now) {
         var startDisp = printDayOfWeek(startDate) + " " + printHourMin(startDate);
         var endDisp = (printDayOfWeek(endDate) != printDayOfWeek(startDate) ? printDayOfWeek(endDate) + " " : "") + printHourMin(endDate);
 
-        var eventid = event.startname+'-'+eventstart;
-
         container.innerHTML += render('event', {
             'name': safe(event.name),
             'time': time,
@@ -247,15 +283,33 @@ function updateCalendar(events, now) {
             'end': eventend,
             'startDisp': startDisp,
             'endDisp': endDisp,
-            'id': eventid,
+            'id': event.id,
             'eventType': eventType,
             'recency': recency,
+            'cssClass': '',
         });
-        if (eventid in window.eventClasses) {
-            document.querySelector('.event[data-id="' + eventid + '"').setAttribute('class', window.eventClasses[eventid]);
+        if (event.id in window.eventClasses) {
+            document.querySelector('.event[data-id="' + event.id + '"').setAttribute('class', window.eventClasses[event.id]);
         }
     });
     updateBgColors(now);
+    checkAllCompleted();
+}
+
+function checkAllCompleted() {
+    if (document.querySelectorAll('.container > .event:not(.completed):not(.allDone)').length != 0) {
+        return;
+    }
+
+    if (document.querySelectorAll('.container > .allDone').length > 0) {
+        return;
+    }
+
+
+    var container = document.querySelector(".container");
+    container.innerHTML += render('allDone', {
+        'total': events.length
+    });
 }
 
 window.eventClasses = {};
@@ -264,7 +318,20 @@ function eventClick(ths) {
 
     ths.classList.toggle('clicked');
     window.eventClasses[ths.getAttribute("data-id")] = ths.getAttribute("class");
+}
 
+function eventDblClick(ths) {
+    var ths = ths || this;
+
+    ths.classList.toggle('dblclicked');
+    window.eventClasses[ths.getAttribute("data-id")] = ths.getAttribute("class");
+    setTimeout(function() {
+        if (ths.classList.contains('dblclicked')) {
+            ths.classList.add('completed');
+            window.eventClasses[ths.getAttribute("data-id")] = ths.getAttribute("class");
+            markComplete(ths.getAttribute('data-id'));
+        }
+    }, 5000);
 }
 
 window.onload = async function() {
@@ -312,7 +379,7 @@ window.onload = async function() {
 }
     </script>
     <script id='event' type='text/template'>
-<div class="event {eventType} {recency}" data-start="{start}" data-end="{end}" ata-id="{id}" onclick="eventClick(this)">
+<div class="event {eventType} {recency}{cssClass}" data-start="{start}" data-end="{end}" data-id="{id}" onclick="eventClick(this)" ondblclick="eventDblClick(this)">
     <div class="primary">
         <div class="left">
             <h1>{name}</h1>
@@ -326,6 +393,15 @@ window.onload = async function() {
         <h2>{startDisp} - {endDisp}</h2>
     </div>
 </div>
+    </script>
+    <script id='allDone' type='text/template'>
+        <div class="allDone">
+            <div class="primary">
+                <div class="left">
+                    <h1>Completed {total} events today!</h1>
+                </div>
+            </div>
+        </div>
     </script>
 </head>
 <body>

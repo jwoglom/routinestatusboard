@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from flask import Flask, Response, request, abort, render_template, jsonify, send_from_directory
+import collections
 
 app = Flask(__name__, static_folder='static')
 
@@ -24,4 +25,18 @@ def index_route():
 
 @app.route('/routines')
 def routines_route():
-    return jsonify(routines)
+    return jsonify([r.to_json() for r in routines])
+
+completed = collections.defaultdict(list)
+
+@app.route('/completed')
+def completed_route():
+    return jsonify(completed)
+
+@app.route('/complete')
+def complete_route():
+    rid = request.args.get('id')
+    day = request.args.get('day')
+    print('complete:', rid, day)
+    completed[day].append(rid)
+    return 'ok'

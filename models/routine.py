@@ -1,5 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List
+import base64
 from .timedate import *
 
 @dataclass
@@ -12,8 +13,11 @@ class Routine:
     def get_start(self):
         return Time.of(self.start)
     
-    def get_end(self):
-        if self.end:
-            return Time.of(self.end)
-        if self.duration:
-            return Time.of(self.start).plus(Duration.of(self.duration))
+    def id(self) -> str:
+        inp = '%s-%s:%s' % (self.name, self.start.hour, self.start.min)
+        return base64.b64encode(inp.encode()).decode()
+
+    def to_json(self):
+        d = asdict(self)
+        d['id'] = self.id()
+        return d

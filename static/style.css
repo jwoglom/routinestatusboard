@@ -81,3 +81,26 @@ body, .container {
 .event:not(.clicked) .secondary {
     display: none;
 }
+
+@keyframes hide {
+    from {opacity: 1;}
+    to {opacity: 0;}
+}
+
+
+.dblclicked {
+    background-color: rgb(48, 128, 80) !important;
+    animation-name: hide;
+    animation-duration: 5s;
+    opacity: 0;
+}
+
+.completed {
+    display: none;
+}
+
+.allDone {
+    background-color: rgb(0, 128, 128);
+    color: black;
+    padding: 20px;
+}
