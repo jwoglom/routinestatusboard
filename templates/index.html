@@ -413,6 +413,19 @@ window.onload = async function() {
 		document.body.appendChild(style);
 	}
 
+    if (window.location.search.indexOf('singleton=') != -1) {
+        var naton = 1;
+		var arg = window.location.search.split('singleton=');
+		if (arg.length > 1) naton = parseInt(arg[1].split('&')[0]);
+        var ncalc = parseInt(100 / naton);
+		var style = document.createElement('style');
+		style.innerHTML = '' +
+		'body .event {' +
+        '  height: '+ncalc+'vh;' +
+        '}';
+		document.body.appendChild(style);
+	}
+
     if (window.location.search.indexOf('wheel=') != -1) {
         var wheelParam = window.location.search.split('wheel=')[1];
         wheelParam = wheelParam.split('&')[0];
