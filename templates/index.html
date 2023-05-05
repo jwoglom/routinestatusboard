@@ -155,6 +155,14 @@ async function getOptions() {
     let api = await fetch('options');
     let out = await api.json();
     console.log("getOptions", out);
+    if (window.location.search.indexOf('hide_future=') != -1) {
+        var param = window.location.search.split('hide_future=')[1];
+        param = param.split('&')[0];
+        out['hide_future'] = !(param == 'false' || param == '0');
+    }
+    if (out['hide_future']) {
+        document.body.classList.add('hide_future');
+    }
     window.options = out;
 }
 
@@ -205,6 +213,7 @@ function updateCalendar(events, now) {
             return;
         }
 
+        // event already over
         if (overInMins < 0) {
             if (!event.sticky && !event.sticky_for) {
                 console.log('skipping non-sticky event', event);
@@ -226,9 +235,9 @@ function updateCalendar(events, now) {
         processedEvents.push(event.name + startDate + endDate);
 
         var recency = 'current';
-        if (now < eventstart) {
+        if (+now < +startDate) {
             recency = 'before';
-        } else if (now > eventend) {
+        } else if (+now > +endDate) {
             recency = 'after';
         }
 

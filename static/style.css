@@ -23,6 +23,10 @@ body, .container {
     padding: 0;
 }
 
+body.hide_future .event.before {
+    display: none;
+}
+
 .event {
     background: yellow;
     width: auto;
