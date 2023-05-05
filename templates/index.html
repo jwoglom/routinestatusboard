@@ -203,6 +203,9 @@ function updateCalendar(events, now) {
                 var endingMins = minDiff(eventend, now);
                 var endingHalfHours = -1*parseInt(endingMins / 30);
                 length = '<b>' + (endingHalfHours / 2) + ' hr' + (endingHalfHours > 2 ? 's' : '') + '</b> overdue';
+            } else if (overInMins <= 0) {
+                var endingMins = -1*minDiff(eventend, now);
+                length = '<b>' + parseInt(endingMins) + ' min</b> overdue';
 
 
             } else if (timeMins < -120) {
@@ -289,17 +292,18 @@ window.onload = async function() {
     if (window.location.search.indexOf('wheel=') != -1) {
         var wheelParam = window.location.search.split('wheel=')[1];
         wheelParam = wheelParam.split('&')[0];
-        if (wheelParam.length == 0) wheelParam = new Date();
-        var n = +new Date(parseInt(wheelParam));
+        if (wheelParam.length == 0) wheelParam = currentTime();
+        var n = +new Date(wheelParam);
         setTimeout(function() {
             setInterval(function() {
                 console.log(new Date(n));
                 updateBgColors(new Date(n));
+                updateCalendar(window.events, new Date(n));
                 document.querySelectorAll(".event").forEach(function(e) {
                     var dateEnd = new Date(e.getAttribute("data-end"));
-                    if (minDiff(dateEnd, new Date(n)) < 0) {
-                        e.style.display = 'none';
-                    }
+                    // if (minDiff(dateEnd, new Date(n)) < 0) {
+                    //     e.style.display = 'none';
+                    // }
                 });
                 n += 60 * 1000;
             }, 100);
