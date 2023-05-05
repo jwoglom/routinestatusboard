@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 
 from flask import Flask, Response, request, abort, render_template, jsonify, send_from_directory
+import os
 import collections
 
-app = Flask(__name__, static_folder='static')
+ROUTE_TOKEN = ''
+static_url_path = '/static'
+if os.getenv('ROUTE_TOKEN'):
+    ROUTE_TOKEN = '/' + os.getenv('ROUTE_TOKEN')
+    static_url_path = ROUTE_TOKEN + '/static'
+
+app = Flask(__name__, static_folder='static', static_url_path = static_url_path)
 
 # Log messages with Gunicorn
 if not app.debug:
@@ -19,21 +26,21 @@ except ImportError:
     app.logger.warning("Using example config")
 
 
-@app.route('/')
+@app.route(ROUTE_TOKEN + '/')
 def index_route():
     return send_from_directory('templates', 'index.html')
 
-@app.route('/routines')
+@app.route(ROUTE_TOKEN + '/routines')
 def routines_route():
     return jsonify([r.to_json() for r in routines])
 
 completed = collections.defaultdict(list)
 
-@app.route('/completed')
+@app.route(ROUTE_TOKEN + '/completed')
 def completed_route():
     return jsonify(completed)
 
-@app.route('/complete')
+@app.route(ROUTE_TOKEN + '/complete')
 def complete_route():
     rid = request.args.get('id')
     day = request.args.get('day')
