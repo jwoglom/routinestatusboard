@@ -1,4 +1,4 @@
-from models.builders import daily, weekday, weekend
+from .models.builders import daily, weekday, weekend
 
 
 routines = [
