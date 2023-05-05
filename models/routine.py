@@ -9,6 +9,8 @@ class Routine:
     start: Time # HH:MM[am/pm]
     end: Time = None # HH:MM[am/pm]
     days: List[str] = field(default_factory=lambda: DAILY)
+    sticky: bool = False
+    sticky_for: Duration = None # 0h0m
 
     def get_start(self):
         return Time.of(self.start)

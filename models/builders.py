@@ -12,6 +12,12 @@ def routine(**kwargs):
     if kwargs.get('duration'):
         args['end'] = args['start'].plus(Duration.of(kwargs['duration']))
 
+    if kwargs.get('sticky'):
+        args['sticky'] = kwargs['sticky']
+
+    if kwargs.get('sticky_for'):
+        args['sticky_for'] = Duration.of(kwargs['sticky_for'])
+
     if kwargs.get('days'):
         args['days'] = kwargs['days']
     return Routine(**args)

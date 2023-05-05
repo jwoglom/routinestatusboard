@@ -4,6 +4,7 @@ from flask import Flask, Response, request, abort, render_template, jsonify, sen
 import os
 import collections
 
+
 ROUTE_TOKEN = ''
 static_url_path = '/static'
 if os.getenv('ROUTE_TOKEN'):
@@ -20,17 +21,25 @@ if not app.debug:
 
 # gunicorn wants one, and flask run the other...
 try:
-    from config import routines
+    from models.timedate import Time
+    from config import routines, options
 except ImportError:
     try:
-        from .config import routines
+        from .models.timedate import Time
+        from .config import routines, options
     except ImportError:
         app.logger.warning("Using example config")
         try:
-            from example_config import routines
+            from example_config import routines, options
         except ImportError:
-            from .example_config import routines
+            from .example_config import routines, options
 
+def process_options(orig):
+    options = {}
+    if 'switchover_time' in orig:
+        options['switchover_time'] = Time.of(orig['switchover_time'])
+
+    return options
 
 @app.route(ROUTE_TOKEN + '/')
 def index_route():
@@ -45,6 +54,10 @@ completed = collections.defaultdict(list)
 @app.route(ROUTE_TOKEN + '/completed')
 def completed_route():
     return jsonify(completed)
+
+@app.route(ROUTE_TOKEN + '/options')
+def options_route():
+    return jsonify(process_options(options))
 
 @app.route(ROUTE_TOKEN + '/complete')
 def complete_route():

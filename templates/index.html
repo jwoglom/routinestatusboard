@@ -150,6 +150,14 @@ function isCompleted(id) {
     return false;
 }
 
+window.options = {};
+async function getOptions() {
+    let api = await fetch('options');
+    let out = await api.json();
+    console.log("getOptions", out);
+    window.options = out;
+}
+
 function updateCalendar(events, now) {
     window.events = events;
     var container = document.querySelector(".container");
@@ -184,9 +192,30 @@ function updateCalendar(events, now) {
 
         console.log(event.name, 'timeMins:', timeMins, 'overInMins:', overInMins, 'length:', lengthMins, event);
 
+        if (window.options['switchover_time']) {
+            let so = window.options['switchover_time'];
+            if (now.getHours() < so['hour'] && startDate.getHours() >= so['hour']) {
+                console.info('hiding due to switchover time', so);
+                return;
+            }
+        }
+
         if (isCompleted(event.id)) {
             console.info('skip completed', event);
             return;
+        }
+
+        if (overInMins < 0) {
+            if (!event.sticky && !event.sticky_for) {
+                console.log('skipping non-sticky event', event);
+                return;
+            } else if (event.sticky_for) {
+                var stickyPeriod = event.sticky_for['hours']*60 + event.sticky_for['mins'];
+                if (overInMins <= -1*stickyPeriod) {
+                    console.log('skipping expired sticky_for event', stickyPeriod, event);
+                    return;
+                }
+            }
         }
 
         // Skip duplicated events (on multiple calendars)
@@ -305,10 +334,25 @@ function checkAllCompleted() {
         return;
     }
 
+    let total = window.events.length;
+
+    let compl = window.completed[currentYmd()];
+    if (compl) {
+        compl = compl.length;
+    } else {
+        compl = 0;
+    }
+
+    let title = '' + compl + ' of ' + total + ' events completed today'
+    if (compl == total) {
+        title += '! 🔥';
+    } else if (compl / total > 0.5) {
+        title += ' -- making progress!';
+    }
 
     var container = document.querySelector(".container");
     container.innerHTML += render('allDone', {
-        'total': events.length
+        'title': title,
     });
 }
 
@@ -340,6 +384,7 @@ window.onload = async function() {
         offsetParam = offsetParam.split('&')[0];
         window.timeOffset = parseInt(offsetParam) * 1000 * 60;
     }
+    await getOptions();
     await fetchCalendar();
 
     // Update event colors/remove past events every minute
@@ -355,6 +400,18 @@ window.onload = async function() {
         zoomParam = zoomParam.split('&')[0];
         document.body.style.zoom = zoomParam;
     }
+
+    if (window.location.search.indexOf('dark') != -1) {
+        var color = 'black';
+		var arg = window.location.search.split('dark=');
+		if (arg.length > 1) color = arg[1].split('&')[0];
+		var style = document.createElement('style');
+		style.innerHTML = '' +
+		'body, .container {' +
+		'	background: ' + color + ';' +
+		'}';
+		document.body.appendChild(style);
+	}
 
     if (window.location.search.indexOf('wheel=') != -1) {
         var wheelParam = window.location.search.split('wheel=')[1];
@@ -398,7 +455,7 @@ window.onload = async function() {
         <div class="allDone">
             <div class="primary">
                 <div class="left">
-                    <h1>Completed {total} events today!</h1>
+                    <h1>{title}</h1>
                 </div>
             </div>
         </div>
