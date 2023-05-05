@@ -22,10 +22,13 @@ if not app.debug:
 # gunicorn wants one, and flask run the other...
 try:
     from models.timedate import Time
+except ImportError:
+    from .models.timedate import Time
+
+try:
     from config import routines, options
 except ImportError:
     try:
-        from .models.timedate import Time
         from .config import routines, options
     except ImportError:
         app.logger.warning("Using example config")
