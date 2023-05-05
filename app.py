@@ -4,6 +4,7 @@ from flask import Flask, Response, request, abort, render_template, jsonify, sen
 import os
 import collections
 
+from routines.models.timedate import Time
 
 ROUTE_TOKEN = ''
 static_url_path = '/static'
@@ -19,23 +20,12 @@ if not app.debug:
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.INFO)
 
-# gunicorn wants one, and flask run the other...
-try:
-    from models.timedate import Time
-except ImportError:
-    from .models.timedate import Time
 
 try:
-    from config import routines, options
+    from routines.config import routines, options
 except ImportError:
-    try:
-        from .config import routines, options
-    except ImportError:
-        app.logger.warning("Using example config")
-        try:
-            from example_config import routines, options
-        except ImportError:
-            from .example_config import routines, options
+    app.logger.warning("Using example config")
+    from routines.example_config import routines, options
 
 def process_options(orig):
     options = {}
