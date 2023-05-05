@@ -70,12 +70,12 @@ function updateBgColors(now) {
             // Keep solid color for full day events
             midColor = 128;
         } else if (minsUntil < 0) {
-            // While events are occurring, make them focus out
-            var ratio = 60 * ((minsTotal - minsUntilEnd) / minsTotal);
-            midColor = Math.max(68, Math.min(68 + ratio, 128));
+            // When events are due or should have happened in the past, make them focus in
+            midColor = Math.max(68, Math.min(68 + minsUntil, 128));
         } else if (minsUntil < 60) {
             // As it gets closer to events occurring, make them focus in
-            midColor = Math.max(68, Math.min(68 + minsUntil, 128));
+            var ratio = 60 * ((minsTotal - minsUntilEnd) / minsTotal);
+            midColor = Math.max(68, Math.min(68 + ratio, 128));
         }
 
         var firstColor = 128;
@@ -96,8 +96,17 @@ function updateBgColors(now) {
     })
 }
 
-async function fetchCalendar() {
+function currentTime() {
     let now = new Date();
+    if (window.timeOffset) {
+        now = new Date(+now + window.timeOffset);
+    }
+    return now;
+}
+
+window.timeOffset = 0;
+async function fetchCalendar() {
+    let now = currentTime();
     console.log("Fetching calendar at", now);
     let api = await fetch('routines');
     let routines = await api.json();
@@ -121,7 +130,7 @@ function updateCalendar(events, now) {
         // Force all-day events to properly show up in the user's local timezone
         // (Changes e.g. "Wednesday 8pm - Thursday 8pm" to "Thursday 12am - Friday 12am")
         if (eventstart.endsWith('00:00:00 GMT') && eventend.endsWith('00:00:00 GMT')) {
-            var dateParts = ('' + new Date()).split(' ');
+            var dateParts = ('' + now).split(' ');
             var currentTz = 'GMT-0400';
             for (var i=0; i<dateParts.length; i++) {
                 if (dateParts[i].startsWith('GMT')) {
@@ -135,11 +144,12 @@ function updateCalendar(events, now) {
 
         var timeMins = minDiff(eventstart, now);
         var lengthMins = parseInt(minDiff(eventend, eventstart));
+        var overInMins = minDiff(eventend, now);
 
         var startDate = new Date(eventstart);
         var endDate = new Date(eventend);
 
-        console.log(event.name, timeMins, lengthMins, event);
+        console.log(event.name, 'timeMins:', timeMins, 'overInMins:', overInMins, 'length:', lengthMins, event);
 
         // Skip duplicated events (on multiple calendars)
         if (processedEvents.indexOf(event.name + startDate + endDate) != -1) {
@@ -148,9 +158,11 @@ function updateCalendar(events, now) {
         }
         processedEvents.push(event.name + startDate + endDate);
 
-        // Hide events that have already finished if they still appear
-        if (timeMins < -1 * lengthMins) {
-            return;
+        var recency = 'current';
+        if (now < eventstart) {
+            recency = 'before';
+        } else if (now > eventend) {
+            recency = 'after';
         }
 
         var eventType, time, length;
@@ -183,7 +195,17 @@ function updateCalendar(events, now) {
                 length = 'for <b>' + lengthHours + ' hrs</b>';
             }
 
-            if (timeMins < -120) {
+            if (overInMins < -120) {
+                var endingMins = minDiff(eventend, now);
+                var endingHours = -1*parseInt(endingMins / 60);
+                length = '<b>' + endingHours + ' hrs</b> overdue';
+            } else if (overInMins <= -60) {
+                var endingMins = minDiff(eventend, now);
+                var endingHalfHours = -1*parseInt(endingMins / 30);
+                length = '<b>' + (endingHalfHours / 2) + ' hr' + (endingHalfHours > 2 ? 's' : '') + '</b> overdue';
+
+
+            } else if (timeMins < -120) {
                 var endingMins = minDiff(eventend, now);
                 var endingHours = parseInt(endingMins / 60);
                 length = '<b>' + endingHours + ' hrs</b> left';
@@ -224,6 +246,7 @@ function updateCalendar(events, now) {
             'endDisp': endDisp,
             'id': eventid,
             'eventType': eventType,
+            'recency': recency,
         });
         if (eventid in window.eventClasses) {
             document.querySelector('.event[data-id="' + eventid + '"').setAttribute('class', window.eventClasses[eventid]);
@@ -241,12 +264,17 @@ function eventClick(ths) {
 
 }
 
-window.onload = function() {
-    fetchCalendar();
+window.onload = async function() {
+    if (window.location.search.indexOf('offset=') != -1) {
+        var offsetParam = window.location.search.split('offset=')[1];
+        offsetParam = offsetParam.split('&')[0];
+        window.timeOffset = parseInt(offsetParam) * 1000 * 60;
+    }
+    await fetchCalendar();
 
     // Update event colors/remove past events every minute
     window.updateInterval = setInterval(function() {
-        updateCalendar(window.events, new Date());
+        updateCalendar(window.events, currentTime());
     }, 1000 * 60);
 
     // Get new calendar information every 30 minutes
@@ -280,7 +308,7 @@ window.onload = function() {
 }
     </script>
     <script id='event' type='text/template'>
-<div class="event {eventType}" data-start="{start}" data-end="{end}" ata-id="{id}" onclick="eventClick(this)">
+<div class="event {eventType} {recency}" data-start="{start}" data-end="{end}" ata-id="{id}" onclick="eventClick(this)">
     <div class="primary">
         <div class="left">
             <h1>{name}</h1>
