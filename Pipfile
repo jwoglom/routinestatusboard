@@ -5,6 +5,10 @@ name = "pypi"
 
 [packages]
 flask = "*"
+gunicorn = "*"
+eventlet = "*"
 
 [scripts]
 test = "python3 -m unittest discover -vv"
+dev = "flask run -p 5001"
+prod = "gunicorn app:app"

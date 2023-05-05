@@ -18,12 +18,18 @@ if not app.debug:
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.INFO)
 
-
+# gunicorn wants one, and flask run the other...
 try:
-    from .config import routines
+    from config import routines
 except ImportError:
-    from .example_config import routines
-    app.logger.warning("Using example config")
+    try:
+        from .config import routines
+    except ImportError:
+        app.logger.warning("Using example config")
+        try:
+            from example_config import routines
+        except ImportError:
+            from .example_config import routines
 
 
 @app.route(ROUTE_TOKEN + '/')
