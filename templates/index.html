@@ -4,10 +4,6 @@
     <title>statusboard-routines</title>
     <link rel="stylesheet" href="static/style.css" />
     <script type="text/javascript">
-load = async function() {
-    let routines = await fetch('routines');
-    init(await routines.json());
-}
 
 from_time = function(time, now) {
     let t = new Date(now);
@@ -17,51 +13,292 @@ from_time = function(time, now) {
     return t;
 }
 
-create_div = function(routine, now) {
-    let obj = document.createElement('div');
-    obj.classList.add('item');
-
-    let start = from_time(routine['start'], now);
-    let end = from_time(routine['end'], now);
-    obj.setAttribute('data-start', start);
-    obj.setAttribute('data-end', end);
-
-    if (now < start) {
-        obj.classList.add('before');
+function render(tplId, dict) {
+    var tpl = document.querySelector("script#" + tplId);
+    var html = tpl.innerHTML;
+    for (var key in dict) {
+        html = html.replace(new RegExp("\\{" + key + "\\}", "g"), dict[key]);
     }
-    if (now >= start && now <= end) {
-        obj.classList.add('now');
-    }
-    if (now > end) {
-        obj.classList.add('after');
-    }
-    
-    let inner = document.createElement('span');
-    inner.classList.add('header');
-    inner.innerText = routine['name'];
-    obj.appendChild(inner);
-
-    return obj;
+    return html;
 }
 
-init = function(all_routines) {
-    var items_div = document.getElementById('container');
+function safe(txt) {
+    var tmp = document.createElement('div');
+    tmp.innerText = txt;
+    return tmp.innerHTML;
+}
 
+function minDiff(future, past) {
+    return (+new Date(future) - +new Date(past)) / (1000 * 60);
+}
+
+function printHourMin(date) {
+    var hr = date.getHours();
+    var mn = date.getMinutes();
+    if (hr < 12) {
+        if (hr == 0) hr = 12;
+        return hr + ':' + printWithZero(mn) + 'a';
+    }
+    if (hr == 12) hr += 12;
+    return (hr-12) + ':' + printWithZero(mn) + 'p';
+}
+
+function printWithZero(n) {
+    if (n < 10) {
+        return '0' + n;
+    }
+    return ''+n;
+}
+
+function printDayOfWeek(date) {
+    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+}
+
+
+function updateBgColors(now) {
+    var count = 0;
+    document.querySelectorAll(".event").forEach(function(e) {
+        var date = new Date(e.getAttribute("data-start"));
+        var dateEnd = new Date(e.getAttribute("data-end"));
+
+        var minsUntil = minDiff(date, now);
+        var minsUntilEnd = minDiff(dateEnd, now);
+        var minsTotal = minDiff(dateEnd, date);
+
+        var midColor = 128;
+        if (minsTotal >= 1440) {
+            // Keep solid color for full day events
+            midColor = 128;
+        } else if (minsUntil < 0) {
+            // While events are occurring, make them focus out
+            var ratio = 60 * ((minsTotal - minsUntilEnd) / minsTotal);
+            midColor = Math.max(68, Math.min(68 + ratio, 128));
+        } else if (minsUntil < 60) {
+            // As it gets closer to events occurring, make them focus in
+            midColor = Math.max(68, Math.min(68 + minsUntil, 128));
+        }
+
+        var firstColor = 128;
+        var lastColor = 0;
+
+        firstColor -= 20 * count;
+        firstColor = Math.max(0, Math.min(firstColor, 255));
+
+        lastColor += 20 * count;
+        lastColor = Math.max(0, Math.min(lastColor, 128));
+
+        e.style.background = 'rgb('+firstColor+', ' + midColor + ', '+lastColor+')';
+
+        if (minsUntil > 0) {
+            count++;
+        }
+
+    })
+}
+
+async function fetchCalendar() {
     let now = new Date();
-    let dow = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDate()];
-    let routines = all_routines.filter((o) => o['days'].includes(dow));
-    console.info(routines);
-
-    all_routines.map((o) => items_div.appendChild(create_div(o, now)));
+    console.log("Fetching calendar at", now);
+    let api = await fetch('routines');
+    let routines = await api.json();
     
+    let dow = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDate()];
+    routines = routines.filter((o) => o['days'].includes(dow));
+    updateCalendar(routines, now);
+    console.log("fetchCalendar complete at", now);
 }
 
-window.onload = load;
+function updateCalendar(events, now) {
+    window.events = events;
+    var container = document.querySelector(".container");
+    container.innerHTML = '';
+    var processedEvents = [];
+    events.forEach(function(event) {
+        if (!event.start || !event.end) return;
+        console.info(event);
+        var eventstart = ''+from_time(event.start, now);
+        var eventend = ''+from_time(event.end, now);
+        // Force all-day events to properly show up in the user's local timezone
+        // (Changes e.g. "Wednesday 8pm - Thursday 8pm" to "Thursday 12am - Friday 12am")
+        if (eventstart.endsWith('00:00:00 GMT') && eventend.endsWith('00:00:00 GMT')) {
+            var dateParts = ('' + new Date()).split(' ');
+            var currentTz = 'GMT-0400';
+            for (var i=0; i<dateParts.length; i++) {
+                if (dateParts[i].startsWith('GMT')) {
+                    currentTz = dateParts[i];
+                    break;
+                }
+            }
+            eventstart = eventstart.replace('GMT', currentTz);
+            eventend = eventend.replace('GMT', currentTz);
+        }
+
+        var timeMins = minDiff(eventstart, now);
+        var lengthMins = parseInt(minDiff(eventend, eventstart));
+
+        var startDate = new Date(eventstart);
+        var endDate = new Date(eventend);
+
+        console.log(event.name, timeMins, lengthMins, event);
+
+        // Skip duplicated events (on multiple calendars)
+        if (processedEvents.indexOf(event.name + startDate + endDate) != -1) {
+            console.log('skipping duplicate')
+            return;
+        }
+        processedEvents.push(event.name + startDate + endDate);
+
+        // Hide events that have already finished if they still appear
+        if (timeMins < -1 * lengthMins) {
+            return;
+        }
+
+        var eventType, time, length;
+        if (lengthMins == 0) {
+            eventType = 'reminder';
+            time = 'reminder';
+            length = '';
+        } else if (lengthMins >= 1440) {
+            eventType = 'allday';
+            if (printDayOfWeek(startDate) == printDayOfWeek(now)) {
+                time = '<b>all day</b>';
+            } else {
+                time = '<b>' + printDayOfWeek(startDate) + '</b>';
+            }
+            if (lengthMins > 1440) {
+                length = 'until <b>' + printDayOfWeek(endDate) + '</b>';
+            } else {
+                length = '';
+            }
+        } else {
+            eventType = 'normal';
+            time = '<b>now</b>';
+            if (lengthMins < 60) {
+                length = 'for <b>' + lengthMins + ' min</b>';
+            } else if (lengthMins < 4 * 60) {
+                var lengthHalfHours = parseInt(lengthMins / 30);
+                length = 'for <b>' + (lengthHalfHours / 2) + ' hr' + (lengthHalfHours > 2 ? 's' : '') + '</b>';
+            } else {
+                var lengthHours = parseInt(lengthMins / 60);
+                length = 'for <b>' + lengthHours + ' hrs</b>';
+            }
+
+            if (timeMins < -120) {
+                var endingMins = minDiff(eventend, now);
+                var endingHours = parseInt(endingMins / 60);
+                length = '<b>' + endingHours + ' hrs</b> left';
+            } else if (timeMins <= -60) {
+                var endingMins = minDiff(eventend, now);
+                var endingHalfHours = parseInt(endingMins / 30);
+                length = '<b>' + (endingHalfHours / 2) + ' hr' + (endingHalfHours > 2 ? 's' : '') + '</b> left';
+            } else if (timeMins < -2) {
+                var endingMins = minDiff(eventend, now);
+                length = '<b>' + parseInt(endingMins) + ' min</b> left';
+            } else if (timeMins <= 2 && timeMins > -2) {
+                time = '<b>starting</b>';
+            } else if (timeMins > 2 && timeMins < 60) {
+                time = 'in <b>' + parseInt(timeMins) + ' min</b>';
+            } else if (timeMins < 4 * 60) {
+                var timeHalfHours = parseInt(timeMins / 30);
+                time = 'in <b>' + (timeHalfHours / 2) + ' hr' + (timeHalfHours > 2 ? 's' : '') + '</b>';
+            } else if (timeMins < 12 * 60 || printDayOfWeek(startDate) == printDayOfWeek(now)) {
+                time = 'at <b>' + printHourMin(startDate) + '</b>';
+            } else {
+                time = '<b>' + printDayOfWeek(startDate) + '</b>';
+            }
+
+        }
+
+        var startDisp = printDayOfWeek(startDate) + " " + printHourMin(startDate);
+        var endDisp = (printDayOfWeek(endDate) != printDayOfWeek(startDate) ? printDayOfWeek(endDate) + " " : "") + printHourMin(endDate);
+
+        var eventid = event.startname+'-'+eventstart;
+
+        container.innerHTML += render('event', {
+            'name': safe(event.name),
+            'time': time,
+            'length': length,
+            'start': eventstart,
+            'end': eventend,
+            'startDisp': startDisp,
+            'endDisp': endDisp,
+            'id': eventid,
+            'eventType': eventType,
+        });
+        if (eventid in window.eventClasses) {
+            document.querySelector('.event[data-id="' + eventid + '"').setAttribute('class', window.eventClasses[eventid]);
+        }
+    });
+    updateBgColors(now);
+}
+
+window.eventClasses = {};
+function eventClick(ths) {
+    var ths = ths || this;
+
+    ths.classList.toggle('clicked');
+    window.eventClasses[ths.getAttribute("data-id")] = ths.getAttribute("class");
+
+}
+
+window.onload = function() {
+    fetchCalendar();
+
+    // Update event colors/remove past events every minute
+    window.updateInterval = setInterval(function() {
+        updateCalendar(window.events, new Date());
+    }, 1000 * 60);
+
+    // Get new calendar information every 30 minutes
+    window.fetchInterval = setInterval(fetchCalendar, 1000 * 60 * 30);
+
+    if (window.location.search.indexOf('zoom=') != -1) {
+        var zoomParam = window.location.search.split('zoom=')[1];
+        zoomParam = zoomParam.split('&')[0];
+        document.body.style.zoom = zoomParam;
+    }
+
+    if (window.location.search.indexOf('wheel=') != -1) {
+        var wheelParam = window.location.search.split('wheel=')[1];
+        wheelParam = wheelParam.split('&')[0];
+        if (wheelParam.length == 0) wheelParam = new Date();
+        var n = +new Date(parseInt(wheelParam));
+        setTimeout(function() {
+            setInterval(function() {
+                console.log(new Date(n));
+                updateBgColors(new Date(n));
+                document.querySelectorAll(".event").forEach(function(e) {
+                    var dateEnd = new Date(e.getAttribute("data-end"));
+                    if (minDiff(dateEnd, new Date(n)) < 0) {
+                        e.style.display = 'none';
+                    }
+                });
+                n += 60 * 1000;
+            }, 100);
+        }, 3000);
+    }
+}
+    </script>
+    <script id='event' type='text/template'>
+<div class="event {eventType}" data-start="{start}" data-end="{end}" ata-id="{id}" onclick="eventClick(this)">
+    <div class="primary">
+        <div class="left">
+            <h1>{name}</h1>
+        </div>
+        <div class="right">
+            <div class="time">{time}</div>
+            <div class="length">{length}</div>
+        </div>
+    </div>
+    <div class="secondary">
+        <h2>{startDisp} - {endDisp}</h2>
+    </div>
+</div>
     </script>
 </head>
 <body>
-    <div id="container">
-
-    </div>    
+    <div class="container">
+    
+    </div>
 </body>
 </html>

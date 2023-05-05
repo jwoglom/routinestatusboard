@@ -6,24 +6,78 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-code {
-    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-        monospace;
+
+body {
+    overflow-x: hidden;
+    overflow-y: auto;
 }
-.container {
+
+::-webkit-scrollbar {
+    width: 0 !important;
+}
+
+body, .container {
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    background: #343a40;
+    margin: 0;
+    padding: 0;
+}
+
+.event {
+    background: yellow;
+    width: auto;
+    padding: 20px;
+}
+
+.event .primary {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-evenly;
-    margin: 0 25px;
+    justify-content: space-between;
+    align-items: center;
 }
-.header {
-    font-size: 20px;
-    margin-left: 8px;
+
+.event h1 {
+    font-size: 45px;
+    margin: 0;
 }
-.container .item {
-    display: flex;
-    margin: 5px 10px;
-    width: 100%;
-    flex-wrap: wrap;
-    vertical-align: middle;
+
+.event h2 {
+    font-size: 30px;
+    margin: 5px;
+}
+
+.event h3 {
+    font-size: 25px;
+    margin: 5px;
+}
+
+.event .left {
+    /* fix truncated text */
+    min-width: 0;
+}
+
+.event:not(.clicked) .left h1,
+.event:not(.clicked) .left h3 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event .right {
+    text-align: center;
+    min-width: 250px;
+}
+
+.event .time {
+    font-size: 50px;
+    font-weight: 100;
+}
+
+.event .length {
+    font-size: 30px;
+    font-weight: 100;
+    padding-top: 5px;
+}
+
+.event:not(.clicked) .secondary {
+    display: none;
 }
