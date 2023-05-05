@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+    <title>statusboard-routines</title>
+    <link rel="stylesheet" href="static/style.css" />
+    <script type="text/javascript">
+load = async function() {
+    let routines = await fetch('routines');
+    init(await routines.json());
+}
+
+from_time = function(time, now) {
+    let t = new Date(now);
+    t.setHours(time['hour']);
+    t.setMinutes(time['min']);
+    t.setSeconds(0);
+    return t;
+}
+
+create_div = function(routine, now) {
+    let obj = document.createElement('div');
+    obj.classList.add('item');
+
+    let start = from_time(routine['start'], now);
+    let end = from_time(routine['end'], now);
+    obj.setAttribute('data-start', start);
+    obj.setAttribute('data-end', end);
+
+    if (now < start) {
+        obj.classList.add('before');
+    }
+    if (now >= start && now <= end) {
+        obj.classList.add('now');
+    }
+    if (now > end) {
+        obj.classList.add('after');
+    }
+    
+    let inner = document.createElement('span');
+    inner.classList.add('header');
+    inner.innerText = routine['name'];
+    obj.appendChild(inner);
+
+    return obj;
+}
+
+init = function(all_routines) {
+    var items_div = document.getElementById('container');
+
+    let now = new Date();
+    let dow = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDate()];
+    let routines = all_routines.filter((o) => o['days'].includes(dow));
+    console.info(routines);
+
+    all_routines.map((o) => items_div.appendChild(create_div(o, now)));
+    
+}
+
+window.onload = load;
+    </script>
+</head>
+<body>
+    <div id="container">
+
+    </div>    
+</body>
+</html>
