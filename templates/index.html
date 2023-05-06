@@ -284,13 +284,13 @@ function updateCalendar(events, now) {
                 length = '<b>' + parseInt(endingMins) + ' min</b> overdue';
 
 
-            } else if (timeMins < -120) {
+            } else if (timeMins < 0 && overInMins > 120) {
                 var endingMins = minDiff(eventend, now);
                 var endingHours = parseInt(endingMins / 60);
                 length = '<b>' + endingHours + ' hrs</b> left';
-            } else if (timeMins <= -60) {
+            } else if (timeMins < 0 && overInMins >= 60) {
                 var endingMins = minDiff(eventend, now);
-                var endingHalfHours = parseInt(endingMins / 30);
+                var endingHalfHours = Math.round(endingMins / 30);
                 length = '<b>' + (endingHalfHours / 2) + ' hr' + (endingHalfHours > 2 ? 's' : '') + '</b> left';
             } else if (timeMins < -2) {
                 var endingMins = minDiff(eventend, now);
