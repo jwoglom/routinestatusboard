@@ -112,7 +112,7 @@ async function fetchCalendar() {
     let api = await fetch('routines');
     let routines = await api.json();
     
-    let dow = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDate()];
+    let dow = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()];
     routines = routines.filter((o) => o['days'].includes(dow));
     updateCalendar(routines, now);
     console.log("fetchCalendar complete at", now);
