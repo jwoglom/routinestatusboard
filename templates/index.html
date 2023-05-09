@@ -124,6 +124,12 @@ function currentYmd() {
     return ymd;
 }
 
+function yesterdayYmd() {
+    let now = new Date(+currentTime() - 86400*1000);
+    let ymd = now.getFullYear()+'-'+(1+now.getMonth())+'-'+(now.getDate());
+    return ymd;
+}
+
 async function markComplete(id) {
     let api = await fetch('complete?' + new URLSearchParams({'day': currentYmd(), 'id': id}));
     let out = await api.text();
@@ -344,8 +350,14 @@ function checkAllCompleted() {
     }
 
     let total = window.events.length;
+    let ymd = currentYmd();
+    if (new Date().getHours() < 6) {
+        ymd = yesterdayYmd();
+    }
 
-    let compl = window.completed[currentYmd()];
+    console.debug("checkAllCompleted date:", ymd);
+
+    let compl = window.completed[ymd];
     if (compl) {
         compl = compl.length;
     } else {
